@@ -1,110 +1,116 @@
 <div align="center">
 
-# 📊 InsightViz: Web Traffic Analyzer
+# 📊 InsightViz: Web Analytics Dashboard
 
 ![Python](https://img.shields.io/badge/Python-3.8%2B-blue?style=for-the-badge&logo=python&logoColor=white)
-![Pandas](https://img.shields.io/badge/Pandas-Data%20Analysis-150458?style=for-the-badge&logo=pandas&logoColor=white)
+![Pandas](https://img.shields.io/badge/Pandas-Data%20Wrangling-150458?style=for-the-badge&logo=pandas&logoColor=white)
 ![Seaborn](https://img.shields.io/badge/Seaborn-Visualization-success?style=for-the-badge&logo=python&logoColor=white)
 
 <p align="center">
-  <strong>Transforming raw web analytics data into actionable user behavior insights.</strong>
+  <strong>A step-by-step Python workflow to clean, analyze, and visualize web traffic data.</strong>
 </p>
 
 </div>
 
 ---
 
-## 📌 Project Overview
-
-**InsightViz** is a Python-based data cleaning and visualization dashboard designed to analyze web traffic trends. 
-
-Raw web analytics data is often messy and hard to interpret. This project automates the process of **cleaning, formatting, and visualizing** that data to answer key questions about user engagement, peak traffic times, and channel performance.
+## 📖 Project Workflow
+This project follows a structured data analysis pipeline. Below is the step-by-step code implementation used to derive insights.
 
 ---
 
-## 🚀 Key Features
+### 🛠️ Step 1: Data Ingestion & Cleaning
+The raw data export had a messy header structure (metadata in the first row). The first step was to normalize the DataFrame.
 
-* **🧹 Data Cleaning Pipeline:** Automated handling of missing values and formatting of messy columns (like specific `Date-Hour` formats).
-* **🕒 Time-Series Analysis:** Parsing string timestamps into usable Datetime objects for trend analysis.
-* **🔥 Advanced Visualization:** Uses **Matplotlib** and **Seaborn** to generate:
-    * Traffic Heatmaps (Hour vs. Channel)
-    * Engagement Rate Boxplots
-    * User Growth Trends over time
+```python
+import pandas as pd
 
----
+# Load data
+df = pd.read_csv('data-export.csv')
 
-## 📸 Visualization Preview
+# 1. Fix Header Issue (Raw file had metadata in row 0)
+df.columns = df.iloc[0] 
+df = df.drop(index=0).reset_index(drop=True)
 
-*(Place your actual graph screenshots here. For now, here is a description of the outputs)*
+# 2. Rename columns for clarity
+df.columns = [
+    'Channel', 'DateHour', 'Users', 'Sessions', 'EngagedSessions', 
+    'AvgTime', 'EngagedPerUser', 'EventsPerSession', 'EngagementRate', 'EventCount'
+]
 
-| Visual Type | Purpose |
-| :--- | :--- |
-| **📈 Time Series** | Tracks User and Session growth over the selected period. |
-| **🔥 Heatmap** | Identifies the "Hottest" hours for traffic across different channels. |
-| **📊 Boxplot** | Analyzes the spread of Engagement Rates to detect outliers. |
-| **📉 Bar Charts** | Compares User distribution across Organic Search, Social, and Direct channels. |
+# 3. Convert Data Types
+numeric_cols = ['Users', 'Sessions', 'EngagedSessions', 'EngagementRate']
+df[numeric_cols] = df[numeric_cols].apply(pd.to_numeric, errors='coerce')
 
----
+print("✅ Data Cleaned Successfully")
+⏳ Step 2: Time-Series Parsing
+The date was stored as a string format YYYYMMDDHH. We converted this to a usable Datetime object to extract hourly trends.
 
-## 🛠️ Tech Stack
+Python
 
-<div align="center">
-  <img src="https://img.shields.io/badge/Language-Python-blue?style=flat-square" />
-  <img src="https://img.shields.io/badge/Library-Pandas-150458?style=flat-square" />
-  <img src="https://img.shields.io/badge/Library-NumPy-013243?style=flat-square" />
-  <img src="https://img.shields.io/badge/Library-Matplotlib-black?style=flat-square" />
-  <img src="https://img.shields.io/badge/Library-Seaborn-7db954?style=flat-square" />
-</div>
+# Convert 'YYYYMMDDHH' string to datetime objects
+df['DateHour'] = pd.to_datetime(df['DateHour'], format='%Y%m%d%H', errors='coerce')
 
----
+# Feature Engineering: Extract 'Hour' for peak-time analysis
+df['Hour'] = df['DateHour'].dt.hour
+🔍 Step 3: Advanced Analysis (Engagement Logic)
+We needed to compare Engaged vs. Non-Engaged sessions to understand traffic quality.
 
-## 📂 Dataset Details
+Python
 
-The script processes a raw CSV export (`data-export (1).csv`) containing the following key metrics:
-* **Dimensions:** Channel Group, Date + Hour info.
-* **Metrics:** Active Users, Sessions, Event Counts.
-* **Engagement:** Engagement Rate, Average Engagement Time.
+# Create a summary dataframe
+session_df = df.groupby('Channel')[['Sessions', 'EngagedSessions']].sum().reset_index()
 
-> *Note: The dataset used is a sample export mimicking Google Analytics 4 (GA4) raw data structures.*
+# Calculate Non-Engaged Sessions
+session_df['Non-Engaged'] = session_df['Sessions'] - session_df['EngagedSessions']
 
----
+# Melt data for stacked visualization
+session_df_melted = session_df.melt(
+    id_vars='Channel', 
+    value_vars=['EngagedSessions', 'Non-Engaged']
+)
+🎨 Step 4: Visualization
+Using Seaborn to generate insights. Below is the code for the Traffic Heatmap, which identifies the busiest hours for each channel.
 
-## 📦 How to Run This Project
+Python
 
-1.  **Clone the Repository**
-    ```bash
-    git clone [https://github.com/data-analyst-harsh-soni/InsightViz-Web-Traffic.git](https://github.com/data-analyst-harsh-soni/InsightViz-Web-Traffic.git)
-    ```
+import seaborn as sns
+import matplotlib.pyplot as plt
 
-2.  **Install Dependencies**
-    Ensure you have the required libraries installed:
-    ```bash
-    pip install pandas numpy matplotlib seaborn
-    ```
+# Prepare Matrix for Heatmap
+heatmap_data = df.groupby(['Hour', 'Channel'])['Sessions'].sum().unstack().fillna(0)
 
-3.  **Run the Analysis Script**
-    ```bash
-    python main.py
-    ```
-    *(The charts will generate and display automatically)*
+# Plotting
+plt.figure(figsize=(12, 8))
+sns.heatmap(heatmap_data, cmap='YlGnBu', linewidths=0.5, annot=True, fmt='.0f')
 
----
+plt.title('🔥 Traffic Intensity by Hour and Channel')
+plt.xlabel('Channel Group')
+plt.ylabel('Hour of Day')
+plt.show()
+📸 Output Previews
+Engagement Trends	Traffic Heatmap
+(Place your BarChart image here)	(Place your Heatmap image here)
 
-## 🧠 Key Insights (Sample)
+Export to Sheets
 
-* **Peak Traffic:** Analysis revealed that "Organic Search" brings in the most users, but "Referral" traffic has a higher engagement rate.
-* **Time Trends:** User activity peaks between **10:00 AM and 2:00 PM**, suggesting the best time for content updates.
-* **Engagement:** A clear correlation was found between "Session Duration" and "Conversion Events."
+Key Insight: "Organic Search" drives the most volume, but "Referral" traffic shows consistently higher engagement rates during business hours (10 AM - 4 PM).
 
----
+🚀 How to Run locally
+Clone the repo.
 
-## 👤 Author
+Install dependencies: pip install pandas matplotlib seaborn
 
-**Harsh Soni**
-*Aspiring Data Analyst | Python & SQL Enthusiast*
+Run the script: python main.py
 
-[LinkedIn](https://www.linkedin.com/in/harsh-soni-data-analyst) | [GitHub Profile](https://github.com/data-analyst-harsh-soni)
+<div align="center"> <i>Created by Harsh Soni</i> </div>
 
----
 
-⭐ **If you found this analysis helpful, please star the repo!**
+### ✨ Isme khaas kya hai?
+
+1.  **Code Snippets:** Pura code ek saath nahi fenka. Chhote chunks mein divide kiya hai (Cleaning -\> Time Parsing -\> Logic -\> Visuals).
+2.  **Comments:** Code ke andar comments (`# Fix Header Issue`) dikha rahe hain ki aapko pata hai aap kya kar rahe ho.
+3.  **Storytelling:** Headers batate hain *kyun* ye step liya gaya (e.g., "The raw data export had a messy header...").
+4.  **Emojis:** Thoda visual appeal add karte hain bina unprofessional lage.
+
+Isse copy karo aur README.md mein daal do, GitHub repo ekdum premium lagega\! 🚀
